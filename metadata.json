@@ -1,0 +1,6 @@
+{
+  "name": "ଓଡ଼ିଆ ଶିକ୍ଷା ସାଥୀ",
+  "description": "NEP 2020 Panchapadi lesson planner and social learning platform for Odisha teachers and educators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

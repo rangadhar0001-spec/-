@@ -1,0 +1,342 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private educator or learner account record with PII and preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "Educator display name" },
+        "email": { "type": "string", "description": "Private email address (never publicly exposed)" },
+        "role": { "type": "string", "enum": ["teacher", "student", "school_admin", "app_admin"] },
+        "schoolName": { "type": "string", "description": "School or institution name" },
+        "district": { "type": "string", "description": "Odisha district name" },
+        "subjects": { "type": "array", "description": "Teaching or learning subjects (max 10)" },
+        "profileVisibility": { "type": "string", "enum": ["public", "school_only", "private"] },
+        "languagePref": { "type": "string", "enum": ["or", "en"] },
+        "blockedUserIds": { "type": "array", "description": "Blocked user IDs (max 50)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update" }
+      },
+      "required": ["userId", "displayName", "role", "schoolName", "district", "subjects", "profileVisibility", "languagePref", "createdAt", "updatedAt"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly visible educator card without PII.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["teacher", "student", "school_admin", "app_admin"] },
+        "schoolName": { "type": "string" },
+        "district": { "type": "string" },
+        "subjects": { "type": "array" },
+        "profileVisibility": { "type": "string", "enum": ["public", "school_only", "private"] },
+        "followersCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "role", "schoolName", "district", "subjects", "profileVisibility", "followersCount", "createdAt", "updatedAt"]
+    },
+    "LessonPlan": {
+      "title": "LessonPlan",
+      "description": "NEP 2020 Panchapadi structured lesson plan in Odia or English.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "title": { "type": "string" },
+        "stage": { "type": "string", "enum": ["foundational", "preparatory", "middle", "secondary"] },
+        "classLevel": { "type": "string" },
+        "subject": { "type": "string" },
+        "medium": { "type": "string" },
+        "topic": { "type": "string" },
+        "durationMinutes": { "type": "integer" },
+        "planDay": { "type": "integer" },
+        "planMonth": { "type": "integer" },
+        "planYear": { "type": "integer" },
+        "learningObjectives": { "type": "string" },
+        "tlmMaterials": { "type": "string" },
+        "teacherActivities": { "type": "string" },
+        "studentActivities": { "type": "string" },
+        "aditiStep": { "type": "string" },
+        "aditiMinutes": { "type": "integer" },
+        "bodhaStep": { "type": "string" },
+        "bodhaMinutes": { "type": "integer" },
+        "abhyasaStep": { "type": "string" },
+        "abhyasaMinutes": { "type": "integer" },
+        "prayogaStep": { "type": "string" },
+        "prayogaMinutes": { "type": "integer" },
+        "prasaraStep": { "type": "string" },
+        "prasaraMinutes": { "type": "integer" },
+        "competencyQuestions": { "type": "string" },
+        "assessmentCriteria": { "type": "string" },
+        "homeworkActivities": { "type": "string" },
+        "inclusiveSuggestions": { "type": "string" },
+        "summary": { "type": "string" },
+        "teacherReflection": { "type": "string" },
+        "isAiGenerated": { "type": "boolean" },
+        "isVerified": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "authorName", "title", "stage", "classLevel", "subject", "medium",
+        "topic", "durationMinutes", "planDay", "planMonth", "planYear",
+        "learningObjectives", "tlmMaterials", "teacherActivities", "studentActivities",
+        "aditiStep", "aditiMinutes", "bodhaStep", "bodhaMinutes", "abhyasaStep", "abhyasaMinutes",
+        "prayogaStep", "prayogaMinutes", "prasaraStep", "prasaraMinutes",
+        "competencyQuestions", "assessmentCriteria", "homeworkActivities",
+        "inclusiveSuggestions", "summary", "teacherReflection",
+        "isAiGenerated", "isVerified", "status", "createdAt", "updatedAt"
+      ]
+    },
+    "CommunityPost": {
+      "title": "CommunityPost",
+      "description": "Social post shared by Odisha educators.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorRole": { "type": "string" },
+        "authorSchool": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["lesson_plan", "teaching_idea", "activity", "resource"] },
+        "stage": { "type": "string", "enum": ["foundational", "preparatory", "middle", "secondary"] },
+        "classLevel": { "type": "string" },
+        "subject": { "type": "string" },
+        "district": { "type": "string" },
+        "lessonPlanId": { "type": "string" },
+        "lessonPlanTitle": { "type": "string" },
+        "planDay": { "type": "integer" },
+        "planMonth": { "type": "integer" },
+        "planYear": { "type": "integer" },
+        "likesCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "visibility": { "type": "string", "enum": ["public", "school_only", "hidden"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "authorName", "authorRole", "authorSchool", "title", "content",
+        "category", "stage", "classLevel", "subject", "district",
+        "planDay", "planMonth", "planYear", "likesCount", "commentsCount",
+        "visibility", "createdAt", "updatedAt"
+      ]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Comment on a community post.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "text": { "type": "string" },
+        "postVisibility": { "type": "string", "enum": ["public", "school_only", "hidden"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "authorName", "text", "postVisibility", "createdAt"]
+    },
+    "PostLike": {
+      "title": "PostLike",
+      "description": "Like marker keyed by user UID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "User bookmarked lesson plan or post.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["post", "lesson_plan"] },
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType", "title", "subject", "createdAt"]
+    },
+    "UserNotification": {
+      "title": "UserNotification",
+      "description": "In-app notification for an educator.",
+      "type": "object",
+      "properties": {
+        "recipientId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "comment", "follow", "plan_verified", "system"] },
+        "message": { "type": "string" },
+        "targetId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["recipientId", "senderId", "senderName", "type", "message", "isRead", "createdAt"]
+    },
+    "TeacherGroup": {
+      "title": "TeacherGroup",
+      "description": "Subject-wise or class-wise Odisha teacher community group.",
+      "type": "object",
+      "properties": {
+        "creatorId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "stage": { "type": "string", "enum": ["foundational", "preparatory", "middle", "secondary"] },
+        "subject": { "type": "string" },
+        "district": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "memberCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["creatorId", "name", "description", "stage", "subject", "district", "isPublic", "memberCount", "createdAt", "updatedAt"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "Membership record for a teacher group.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "joinedAt"]
+    },
+    "ContentReport": {
+      "title": "ContentReport",
+      "description": "Moderation report for inappropriate posts or lesson plans.",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["post", "lesson_plan", "user"] },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "dismissed", "action_taken"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "targetId", "targetType", "reason", "status", "createdAt", "updatedAt"]
+    },
+    "PanchapadiConfig": {
+      "title": "PanchapadiConfig",
+      "description": "Configurable Panchapadi step labels and descriptions.",
+      "type": "object",
+      "properties": {
+        "isActive": { "type": "boolean" },
+        "aditiLabel": { "type": "string" },
+        "aditiDesc": { "type": "string" },
+        "bodhaLabel": { "type": "string" },
+        "bodhaDesc": { "type": "string" },
+        "abhyasaLabel": { "type": "string" },
+        "abhyasaDesc": { "type": "string" },
+        "prayogaLabel": { "type": "string" },
+        "prayogaDesc": { "type": "string" },
+        "prasaraLabel": { "type": "string" },
+        "prasaraDesc": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "isActive", "aditiLabel", "aditiDesc", "bodhaLabel", "bodhaDesc",
+        "abhyasaLabel", "abhyasaDesc", "prayogaLabel", "prayogaDesc",
+        "prasaraLabel", "prasaraDesc", "updatedBy", "updatedAt"
+      ]
+    },
+    "LessonPlanProgress": {
+      "title": "LessonPlanProgress",
+      "description": "Tracks teacher progress for a lesson plan against NEP 2020 Panchapadi guidelines and learning outcomes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "lessonPlanId": { "type": "string" },
+        "stage": { "type": "string", "enum": ["foundational", "preparatory", "middle", "secondary"] },
+        "aditiCompleted": { "type": "boolean" },
+        "bodhaCompleted": { "type": "boolean" },
+        "abhyasaCompleted": { "type": "boolean" },
+        "prayogaCompleted": { "type": "boolean" },
+        "prasaraCompleted": { "type": "boolean" },
+        "checkedGuidelineIds": { "type": "array" },
+        "achievedOutcomeIndices": { "type": "array" },
+        "inProgressOutcomeIndices": { "type": "array" },
+        "inclusiveSupportApplied": { "type": "boolean" },
+        "tlmUsedInClass": { "type": "boolean" },
+        "assessmentConducted": { "type": "boolean" },
+        "classroomNotes": { "type": "string" },
+        "lastTrackedDay": { "type": "integer" },
+        "lastTrackedMonth": { "type": "integer" },
+        "lastTrackedYear": { "type": "integer" },
+        "completionPercent": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "lessonPlanId", "stage",
+        "aditiCompleted", "bodhaCompleted", "abhyasaCompleted", "prayogaCompleted", "prasaraCompleted",
+        "checkedGuidelineIds", "achievedOutcomeIndices", "inProgressOutcomeIndices",
+        "inclusiveSupportApplied", "tlmUsedInClass", "assessmentConducted",
+        "classroomNotes", "lastTrackedDay", "lastTrackedMonth", "lastTrackedYear",
+        "completionPercent", "createdAt", "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account and preferences (owner/admin only)"
+    },
+    "/public_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Public educator cards without PII"
+    },
+    "/lesson_plans/{planId}": {
+      "schema": { "$ref": "#/entities/LessonPlan" },
+      "description": "NEP 2020 Panchapadi lesson plans"
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/CommunityPost" },
+      "description": "Teacher community posts"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/PostComment" },
+      "description": "Comments on community posts"
+    },
+    "/posts/{postId}/likes/{likeUserId}": {
+      "schema": { "$ref": "#/entities/PostLike" },
+      "description": "Likes on community posts keyed by user UID"
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/Bookmark" },
+      "description": "User-scoped bookmarked posts and lesson plans"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/UserNotification" },
+      "description": "User-scoped notifications"
+    },
+    "/users/{userId}/lesson_progress/{progressId}": {
+      "schema": { "$ref": "#/entities/LessonPlanProgress" },
+      "description": "User-scoped NEP 2020 Panchapadi and learning outcome progress records"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/TeacherGroup" },
+      "description": "Subject-wise and class-wise teacher community groups"
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/GroupMember" },
+      "description": "Group membership records"
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ContentReport" },
+      "description": "Content moderation reports"
+    },
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/PanchapadiConfig" },
+      "description": "Configurable Panchapadi framework labels and descriptions"
+    }
+  }
+}

@@ -1,0 +1,587 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Shared Security Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isNonEmptyString(val, maxLen) {
+      return val is string && val.size() >= 1 && val.size() <= maxLen;
+    }
+
+    function isBoundedString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        ('email_verified' in request.auth.token &&
+          request.auth.token.email_verified == true &&
+          'email' in request.auth.token &&
+          request.auth.token.email == 'jadumani0864@gmail.com')
+      );
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.displayName, 100) &&
+        (!('email' in data) || data.email == null || isBoundedString(data.email, 150)) &&
+        data.role in ['teacher', 'student', 'school_admin', 'app_admin'] &&
+        isBoundedString(data.schoolName, 150) &&
+        isBoundedString(data.district, 60) &&
+        data.subjects is list && data.subjects.size() <= 10 &&
+        (data.subjects.size() == 0 || isBoundedString(data.subjects[0], 60)) &&
+        data.profileVisibility in ['public', 'school_only', 'private'] &&
+        data.languagePref in ['or', 'en'] &&
+        (!('blockedUserIds' in data) || (data.blockedUserIds is list && data.blockedUserIds.size() <= 50 &&
+          (data.blockedUserIds.size() == 0 || isBoundedString(data.blockedUserIds[0], 128)))) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPublicProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.displayName, 100) &&
+        data.role in ['teacher', 'student', 'school_admin', 'app_admin'] &&
+        isBoundedString(data.schoolName, 150) &&
+        isBoundedString(data.district, 60) &&
+        data.subjects is list && data.subjects.size() <= 10 &&
+        (data.subjects.size() == 0 || isBoundedString(data.subjects[0], 60)) &&
+        data.profileVisibility in ['public', 'school_only', 'private'] &&
+        data.followersCount is int && data.followersCount >= 0 && data.followersCount <= 1000000 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidLessonPlan(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.authorName, 100) &&
+        isNonEmptyString(data.title, 200) &&
+        data.stage in ['foundational', 'preparatory', 'middle', 'secondary'] &&
+        isNonEmptyString(data.classLevel, 40) &&
+        isNonEmptyString(data.subject, 80) &&
+        isNonEmptyString(data.medium, 40) &&
+        isNonEmptyString(data.topic, 200) &&
+        data.durationMinutes is int && data.durationMinutes >= 5 && data.durationMinutes <= 300 &&
+        data.planDay is int && data.planDay >= 1 && data.planDay <= 31 &&
+        data.planMonth is int && data.planMonth >= 1 && data.planMonth <= 12 &&
+        data.planYear is int && data.planYear >= 2020 && data.planYear <= 2100 &&
+        isBoundedString(data.learningObjectives, 3000) &&
+        isBoundedString(data.tlmMaterials, 2000) &&
+        isBoundedString(data.teacherActivities, 3000) &&
+        isBoundedString(data.studentActivities, 3000) &&
+        isBoundedString(data.aditiStep, 3000) &&
+        data.aditiMinutes is int && data.aditiMinutes >= 1 && data.aditiMinutes <= 120 &&
+        isBoundedString(data.bodhaStep, 4000) &&
+        data.bodhaMinutes is int && data.bodhaMinutes >= 1 && data.bodhaMinutes <= 120 &&
+        isBoundedString(data.abhyasaStep, 3000) &&
+        data.abhyasaMinutes is int && data.abhyasaMinutes >= 1 && data.abhyasaMinutes <= 120 &&
+        isBoundedString(data.prayogaStep, 3000) &&
+        data.prayogaMinutes is int && data.prayogaMinutes >= 1 && data.prayogaMinutes <= 120 &&
+        isBoundedString(data.prasaraStep, 3000) &&
+        data.prasaraMinutes is int && data.prasaraMinutes >= 1 && data.prasaraMinutes <= 120 &&
+        isBoundedString(data.competencyQuestions, 3000) &&
+        isBoundedString(data.assessmentCriteria, 3000) &&
+        isBoundedString(data.homeworkActivities, 2000) &&
+        isBoundedString(data.inclusiveSuggestions, 2000) &&
+        isBoundedString(data.summary, 2000) &&
+        isBoundedString(data.teacherReflection, 2000) &&
+        data.isAiGenerated is bool &&
+        data.isVerified is bool &&
+        data.status in ['draft', 'published', 'archived'] &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPost(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.authorName, 100) &&
+        isNonEmptyString(data.authorRole, 40) &&
+        isBoundedString(data.authorSchool, 150) &&
+        isNonEmptyString(data.title, 200) &&
+        isNonEmptyString(data.content, 5000) &&
+        data.category in ['lesson_plan', 'teaching_idea', 'activity', 'resource'] &&
+        data.stage in ['foundational', 'preparatory', 'middle', 'secondary'] &&
+        isNonEmptyString(data.classLevel, 40) &&
+        isNonEmptyString(data.subject, 80) &&
+        isBoundedString(data.district, 60) &&
+        (!('lessonPlanId' in data) || data.lessonPlanId == null || isBoundedString(data.lessonPlanId, 128)) &&
+        (!('lessonPlanTitle' in data) || data.lessonPlanTitle == null || isBoundedString(data.lessonPlanTitle, 200)) &&
+        data.planDay is int && data.planDay >= 1 && data.planDay <= 31 &&
+        data.planMonth is int && data.planMonth >= 1 && data.planMonth <= 12 &&
+        data.planYear is int && data.planYear >= 2020 && data.planYear <= 2100 &&
+        data.likesCount is int && data.likesCount >= 0 && data.likesCount <= 1000000 &&
+        data.commentsCount is int && data.commentsCount >= 0 && data.commentsCount <= 1000000 &&
+        data.visibility in ['public', 'school_only', 'hidden'] &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidComment(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.authorName, 100) &&
+        isNonEmptyString(data.text, 1000) &&
+        data.postVisibility in ['public', 'school_only', 'hidden'] &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidLike(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidBookmark(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        isNonEmptyString(data.targetId, 128) &&
+        data.targetType in ['post', 'lesson_plan'] &&
+        isNonEmptyString(data.title, 200) &&
+        isBoundedString(data.subject, 80) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidNotification(data) {
+      return isNonEmptyString(data.recipientId, 128) &&
+        isNonEmptyString(data.senderId, 128) &&
+        isNonEmptyString(data.senderName, 100) &&
+        data.type in ['like', 'comment', 'follow', 'plan_verified', 'system'] &&
+        isNonEmptyString(data.message, 500) &&
+        (!('targetId' in data) || data.targetId == null || isBoundedString(data.targetId, 128)) &&
+        data.isRead is bool &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidGroup(data) {
+      return isNonEmptyString(data.creatorId, 128) &&
+        isNonEmptyString(data.name, 120) &&
+        isNonEmptyString(data.description, 1000) &&
+        data.stage in ['foundational', 'preparatory', 'middle', 'secondary'] &&
+        isNonEmptyString(data.subject, 80) &&
+        isBoundedString(data.district, 60) &&
+        data.isPublic is bool &&
+        data.memberCount is int && data.memberCount >= 0 && data.memberCount <= 1000000 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidGroupMember(data) {
+      return isNonEmptyString(data.userId, 128) &&
+        isNonEmptyString(data.displayName, 100) &&
+        isValidTimestamp(data.joinedAt);
+    }
+
+    function isValidReport(data) {
+      return isNonEmptyString(data.reporterId, 128) &&
+        isNonEmptyString(data.targetId, 128) &&
+        data.targetType in ['post', 'lesson_plan', 'user'] &&
+        isNonEmptyString(data.reason, 500) &&
+        data.status in ['pending', 'reviewed', 'dismissed', 'action_taken'] &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAppConfig(data) {
+      return data.isActive is bool &&
+        isNonEmptyString(data.aditiLabel, 80) &&
+        isNonEmptyString(data.aditiDesc, 400) &&
+        isNonEmptyString(data.bodhaLabel, 80) &&
+        isNonEmptyString(data.bodhaDesc, 400) &&
+        isNonEmptyString(data.abhyasaLabel, 80) &&
+        isNonEmptyString(data.abhyasaDesc, 400) &&
+        isNonEmptyString(data.prayogaLabel, 80) &&
+        isNonEmptyString(data.prayogaDesc, 400) &&
+        isNonEmptyString(data.prasaraLabel, 80) &&
+        isNonEmptyString(data.prasaraDesc, 400) &&
+        isNonEmptyString(data.updatedBy, 128) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidLessonProgress(data) {
+      return isNonEmptyString(data.userId, 128) &&
+        isNonEmptyString(data.lessonPlanId, 128) &&
+        data.stage in ['foundational', 'preparatory', 'middle', 'secondary'] &&
+        data.aditiCompleted is bool &&
+        data.bodhaCompleted is bool &&
+        data.abhyasaCompleted is bool &&
+        data.prayogaCompleted is bool &&
+        data.prasaraCompleted is bool &&
+        data.checkedGuidelineIds is list && data.checkedGuidelineIds.size() <= 20 &&
+        data.achievedOutcomeIndices is list && data.achievedOutcomeIndices.size() <= 30 &&
+        data.inProgressOutcomeIndices is list && data.inProgressOutcomeIndices.size() <= 30 &&
+        data.inclusiveSupportApplied is bool &&
+        data.tlmUsedInClass is bool &&
+        data.assessmentConducted is bool &&
+        isBoundedString(data.classroomNotes, 1500) &&
+        data.lastTrackedDay is int && data.lastTrackedDay >= 1 && data.lastTrackedDay <= 31 &&
+        data.lastTrackedMonth is int && data.lastTrackedMonth >= 1 && data.lastTrackedMonth <= 12 &&
+        data.lastTrackedYear is int && data.lastTrackedYear >= 2020 && data.lastTrackedYear <= 2100 &&
+        data.completionPercent is int && data.completionPercent >= 0 && data.completionPercent <= 100 &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Admin markers
+    match /admins/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin() && isValidId(userId);
+    }
+
+    // 2. Private User Profiles (strict PII isolation)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(userId) &&
+        request.auth.uid == userId &&
+        incoming().userId == request.auth.uid &&
+        (incoming().role in ['teacher', 'student'] || isAdmin()) &&
+        incoming().keys().hasAll(['userId', 'displayName', 'role', 'schoolName', 'district', 'subjects', 'profileVisibility', 'languagePref', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['userId', 'displayName', 'email', 'role', 'schoolName', 'district', 'subjects', 'profileVisibility', 'languagePref', 'blockedUserIds', 'createdAt', 'updatedAt']) &&
+        isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() && isValidId(userId) && isValidUserProfile(incoming()) && (
+        (request.auth.uid == userId &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().role == existing().role &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'schoolName', 'district', 'subjects', 'profileVisibility', 'languagePref', 'blockedUserIds', 'updatedAt'])) ||
+        (isAdmin() &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt)
+      );
+
+      allow delete: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+
+      // User-scoped Bookmarks
+      match /bookmarks/{bookmarkId} {
+        allow get: if isSignedIn() && isValidId(bookmarkId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && isValidId(bookmarkId) && request.auth.uid == userId &&
+          incoming().userId == request.auth.uid &&
+          incoming().keys().hasAll(['userId', 'targetId', 'targetType', 'title', 'subject', 'createdAt']) &&
+          incoming().keys().hasOnly(['userId', 'targetId', 'targetType', 'title', 'subject', 'createdAt']) &&
+          isValidBookmark(incoming());
+        allow update: if isSignedIn() && isValidId(bookmarkId) && request.auth.uid == userId &&
+          isValidBookmark(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt;
+        allow delete: if isSignedIn() && isValidId(bookmarkId) && request.auth.uid == userId;
+      }
+
+      // User-scoped Notifications
+      match /notifications/{notificationId} {
+        allow get: if isSignedIn() && isValidId(notificationId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && isValidId(notificationId) &&
+          incoming().recipientId == userId &&
+          incoming().senderId == request.auth.uid &&
+          incoming().keys().hasAll(['recipientId', 'senderId', 'senderName', 'type', 'message', 'isRead', 'createdAt']) &&
+          incoming().keys().hasOnly(['recipientId', 'senderId', 'senderName', 'type', 'message', 'targetId', 'isRead', 'createdAt']) &&
+          isValidNotification(incoming());
+        allow update: if isSignedIn() && isValidId(notificationId) && request.auth.uid == userId &&
+          isValidNotification(incoming()) &&
+          incoming().recipientId == existing().recipientId &&
+          incoming().senderId == existing().senderId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+        allow delete: if isSignedIn() && isValidId(notificationId) && request.auth.uid == userId;
+      }
+
+      // User-scoped NEP 2020 & Panchapadi Lesson Progress
+      match /lesson_progress/{progressId} {
+        allow get: if isSignedIn() && isValidId(progressId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create: if isSignedIn() && isValidId(progressId) && request.auth.uid == userId &&
+          incoming().userId == request.auth.uid &&
+          incoming().lessonPlanId == progressId &&
+          incoming().keys().hasAll([
+            'userId', 'lessonPlanId', 'stage',
+            'aditiCompleted', 'bodhaCompleted', 'abhyasaCompleted', 'prayogaCompleted', 'prasaraCompleted',
+            'checkedGuidelineIds', 'achievedOutcomeIndices', 'inProgressOutcomeIndices',
+            'inclusiveSupportApplied', 'tlmUsedInClass', 'assessmentConducted',
+            'classroomNotes', 'lastTrackedDay', 'lastTrackedMonth', 'lastTrackedYear',
+            'completionPercent', 'createdAt', 'updatedAt'
+          ]) &&
+          incoming().keys().hasOnly([
+            'userId', 'lessonPlanId', 'stage',
+            'aditiCompleted', 'bodhaCompleted', 'abhyasaCompleted', 'prayogaCompleted', 'prasaraCompleted',
+            'checkedGuidelineIds', 'achievedOutcomeIndices', 'inProgressOutcomeIndices',
+            'inclusiveSupportApplied', 'tlmUsedInClass', 'assessmentConducted',
+            'classroomNotes', 'lastTrackedDay', 'lastTrackedMonth', 'lastTrackedYear',
+            'completionPercent', 'createdAt', 'updatedAt'
+          ]) &&
+          isValidLessonProgress(incoming());
+        allow update: if isSignedIn() && isValidId(progressId) && request.auth.uid == userId &&
+          isValidLessonProgress(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().lessonPlanId == existing().lessonPlanId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'stage', 'aditiCompleted', 'bodhaCompleted', 'abhyasaCompleted',
+            'prayogaCompleted', 'prasaraCompleted', 'checkedGuidelineIds',
+            'achievedOutcomeIndices', 'inProgressOutcomeIndices',
+            'inclusiveSupportApplied', 'tlmUsedInClass', 'assessmentConducted',
+            'classroomNotes', 'lastTrackedDay', 'lastTrackedMonth', 'lastTrackedYear',
+            'completionPercent', 'updatedAt'
+          ]);
+        allow delete: if isSignedIn() && isValidId(progressId) && request.auth.uid == userId;
+      }
+    }
+
+    // 3. Public Educator Profiles (NO PII)
+    match /public_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (existing().profileVisibility != 'private' || request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && (resource.data.profileVisibility == 'public' || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(userId) &&
+        request.auth.uid == userId &&
+        incoming().userId == request.auth.uid &&
+        (incoming().role in ['teacher', 'student'] || isAdmin()) &&
+        incoming().keys().hasAll(['userId', 'displayName', 'role', 'schoolName', 'district', 'subjects', 'profileVisibility', 'followersCount', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['userId', 'displayName', 'role', 'schoolName', 'district', 'subjects', 'profileVisibility', 'followersCount', 'createdAt', 'updatedAt']) &&
+        isValidPublicProfile(incoming());
+
+      allow update: if isSignedIn() && isValidId(userId) && isValidPublicProfile(incoming()) && (
+        (request.auth.uid == userId &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().role == existing().role &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'schoolName', 'district', 'subjects', 'profileVisibility', 'updatedAt'])) ||
+        (incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['followersCount', 'updatedAt'])) ||
+        (isAdmin() &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt)
+      );
+
+      allow delete: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+    }
+
+    // 4. Panchapadi Lesson Plans
+    match /lesson_plans/{planId} {
+      allow get: if isSignedIn() && isValidId(planId) && (existing().userId == request.auth.uid || existing().status == 'published' || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.status == 'published' || isAdmin());
+
+      allow create: if isSignedIn() && isValidId(planId) &&
+        incoming().userId == request.auth.uid &&
+        (incoming().isVerified == false || isAdmin()) &&
+        incoming().keys().hasAll([
+          'userId', 'authorName', 'title', 'stage', 'classLevel', 'subject', 'medium',
+          'topic', 'durationMinutes', 'planDay', 'planMonth', 'planYear',
+          'learningObjectives', 'tlmMaterials', 'teacherActivities', 'studentActivities',
+          'aditiStep', 'aditiMinutes', 'bodhaStep', 'bodhaMinutes', 'abhyasaStep', 'abhyasaMinutes',
+          'prayogaStep', 'prayogaMinutes', 'prasaraStep', 'prasaraMinutes',
+          'competencyQuestions', 'assessmentCriteria', 'homeworkActivities',
+          'inclusiveSuggestions', 'summary', 'teacherReflection',
+          'isAiGenerated', 'isVerified', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'authorName', 'title', 'stage', 'classLevel', 'subject', 'medium',
+          'topic', 'durationMinutes', 'planDay', 'planMonth', 'planYear',
+          'learningObjectives', 'tlmMaterials', 'teacherActivities', 'studentActivities',
+          'aditiStep', 'aditiMinutes', 'bodhaStep', 'bodhaMinutes', 'abhyasaStep', 'abhyasaMinutes',
+          'prayogaStep', 'prayogaMinutes', 'prasaraStep', 'prasaraMinutes',
+          'competencyQuestions', 'assessmentCriteria', 'homeworkActivities',
+          'inclusiveSuggestions', 'summary', 'teacherReflection',
+          'isAiGenerated', 'isVerified', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidLessonPlan(incoming());
+
+      allow update: if isSignedIn() && isValidId(planId) && isValidLessonPlan(incoming()) && (
+        (existing().userId == request.auth.uid &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().isVerified == existing().isVerified &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'authorName', 'title', 'stage', 'classLevel', 'subject', 'medium',
+            'topic', 'durationMinutes', 'planDay', 'planMonth', 'planYear',
+            'learningObjectives', 'tlmMaterials', 'teacherActivities', 'studentActivities',
+            'aditiStep', 'aditiMinutes', 'bodhaStep', 'bodhaMinutes', 'abhyasaStep', 'abhyasaMinutes',
+            'prayogaStep', 'prayogaMinutes', 'prasaraStep', 'prasaraMinutes',
+            'competencyQuestions', 'assessmentCriteria', 'homeworkActivities',
+            'inclusiveSuggestions', 'summary', 'teacherReflection',
+            'isAiGenerated', 'status', 'updatedAt'
+          ])) ||
+        (isAdmin() &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['isVerified', 'status', 'updatedAt']))
+      );
+
+      allow delete: if isSignedIn() && isValidId(planId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // 5. Community Posts & Subcollections
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId) && (existing().visibility == 'public' || existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.visibility == 'public' || resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() && isValidId(postId) &&
+        incoming().userId == request.auth.uid &&
+        incoming().likesCount == 0 &&
+        incoming().commentsCount == 0 &&
+        incoming().keys().hasAll([
+          'userId', 'authorName', 'authorRole', 'authorSchool', 'title', 'content',
+          'category', 'stage', 'classLevel', 'subject', 'district',
+          'planDay', 'planMonth', 'planYear', 'likesCount', 'commentsCount',
+          'visibility', 'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'authorName', 'authorRole', 'authorSchool', 'title', 'content',
+          'category', 'stage', 'classLevel', 'subject', 'district',
+          'lessonPlanId', 'lessonPlanTitle',
+          'planDay', 'planMonth', 'planYear', 'likesCount', 'commentsCount',
+          'visibility', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidPost(incoming());
+
+      allow update: if isSignedIn() && isValidId(postId) && isValidPost(incoming()) && (
+        (existing().userId == request.auth.uid &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'content', 'category', 'stage', 'classLevel', 'subject',
+            'district', 'lessonPlanId', 'lessonPlanTitle',
+            'planDay', 'planMonth', 'planYear', 'visibility', 'updatedAt'
+          ])) ||
+        (incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'updatedAt'])) ||
+        (isAdmin() &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['visibility', 'updatedAt']))
+      );
+
+      allow delete: if isSignedIn() && isValidId(postId) && (existing().userId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow get: if isSignedIn() && isValidId(commentId) && (existing().postVisibility == 'public' || existing().userId == request.auth.uid || isAdmin());
+        allow list: if isSignedIn() && (resource.data.postVisibility == 'public' || resource.data.userId == request.auth.uid || isAdmin());
+        allow create: if isSignedIn() && isValidId(commentId) &&
+          incoming().userId == request.auth.uid &&
+          incoming().keys().hasAll(['userId', 'authorName', 'text', 'postVisibility', 'createdAt']) &&
+          incoming().keys().hasOnly(['userId', 'authorName', 'text', 'postVisibility', 'createdAt']) &&
+          isValidComment(incoming()) &&
+          exists(/databases/$(database)/documents/posts/$(postId));
+        allow delete: if isSignedIn() && isValidId(commentId) && (existing().userId == request.auth.uid || isAdmin());
+      }
+
+      match /likes/{likeUserId} {
+        allow get: if isSignedIn() && isValidId(likeUserId) && request.auth.uid == likeUserId;
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(likeUserId) &&
+          request.auth.uid == likeUserId &&
+          incoming().userId == request.auth.uid &&
+          incoming().keys().hasAll(['userId', 'createdAt']) &&
+          incoming().keys().hasOnly(['userId', 'createdAt']) &&
+          isValidLike(incoming()) &&
+          exists(/databases/$(database)/documents/posts/$(postId));
+        allow delete: if isSignedIn() && isValidId(likeUserId) && request.auth.uid == likeUserId;
+      }
+    }
+
+    // 6. Teacher Groups & Members
+    match /groups/{groupId} {
+      allow get: if isSignedIn() && isValidId(groupId) && (existing().isPublic == true || existing().creatorId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.isPublic == true || resource.data.creatorId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() && isValidId(groupId) &&
+        incoming().creatorId == request.auth.uid &&
+        incoming().keys().hasAll(['creatorId', 'name', 'description', 'stage', 'subject', 'district', 'isPublic', 'memberCount', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['creatorId', 'name', 'description', 'stage', 'subject', 'district', 'isPublic', 'memberCount', 'createdAt', 'updatedAt']) &&
+        isValidGroup(incoming());
+
+      allow update: if isSignedIn() && isValidId(groupId) && isValidGroup(incoming()) && (
+        (incoming().creatorId == existing().creatorId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['memberCount', 'updatedAt'])) ||
+        (existing().creatorId == request.auth.uid &&
+          incoming().creatorId == existing().creatorId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'stage', 'subject', 'district', 'isPublic', 'updatedAt'])) ||
+        isAdmin()
+      );
+
+      allow delete: if isSignedIn() && isValidId(groupId) && (existing().creatorId == request.auth.uid || isAdmin());
+
+      match /members/{memberId} {
+        allow get: if isSignedIn() && isValidId(memberId) && request.auth.uid == memberId;
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(memberId) &&
+          request.auth.uid == memberId &&
+          incoming().userId == request.auth.uid &&
+          incoming().keys().hasAll(['userId', 'displayName', 'joinedAt']) &&
+          incoming().keys().hasOnly(['userId', 'displayName', 'joinedAt']) &&
+          isValidGroupMember(incoming()) &&
+          exists(/databases/$(database)/documents/groups/$(groupId));
+        allow delete: if isSignedIn() && isValidId(memberId) && request.auth.uid == memberId;
+      }
+    }
+
+    // 7. Content Moderation Reports
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && (existing().reporterId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.reporterId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(reportId) &&
+        incoming().reporterId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().keys().hasAll(['reporterId', 'targetId', 'targetType', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+        incoming().keys().hasOnly(['reporterId', 'targetId', 'targetType', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+        isValidReport(incoming());
+      allow update: if isAdmin() && isValidId(reportId) &&
+        isValidReport(incoming()) &&
+        incoming().reporterId == existing().reporterId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(reportId);
+    }
+
+    // 8. Configurable App Settings (Panchapadi labels)
+    match /app_config/{configId} {
+      allow get: if isSignedIn() && isValidId(configId);
+      allow list: if isSignedIn() && resource.data.isActive == true;
+      allow create, update: if isAdmin() && isValidId(configId) &&
+        incoming().keys().hasAll([
+          'isActive', 'aditiLabel', 'aditiDesc', 'bodhaLabel', 'bodhaDesc',
+          'abhyasaLabel', 'abhyasaDesc', 'prayogaLabel', 'prayogaDesc',
+          'prasaraLabel', 'prasaraDesc', 'updatedBy', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'isActive', 'aditiLabel', 'aditiDesc', 'bodhaLabel', 'bodhaDesc',
+          'abhyasaLabel', 'abhyasaDesc', 'prayogaLabel', 'prayogaDesc',
+          'prasaraLabel', 'prasaraDesc', 'updatedBy', 'updatedAt'
+        ]) &&
+        isValidAppConfig(incoming());
+      allow delete: if isAdmin() && isValidId(configId);
+    }
+  }
+}
